@@ -8,8 +8,12 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
+transformers = "^4.39.0"
 
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.setuptools]
+packages = ["responsible_ai_audit"]
