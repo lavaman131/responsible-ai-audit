@@ -1,10 +1,14 @@
 #OK FUCKERS LETS DO THIS SHIT
-#
+#God i just want to die
 from transformers import AutoModelForSequenceClassification
 from transformers import TFAutoModelForSequenceClassification
 from transformers import AutoTokenizer, AutoConfig
 import numpy as np
 from scipy.special import softmax
+
+#loading the datasets
+from datasets import load_dataset
+dataset = load_dataset("social_bias_frames", split="train")
 
 
 # Preprocess text (username and link placeholders)
