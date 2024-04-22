@@ -21,7 +21,7 @@ config = AutoConfig.from_pretrained(MODEL)
 # PT
 model = AutoModelForSequenceClassification.from_pretrained(MODEL)
 # model.save_pretrained(MODEL)
-text = "Covid cases are increasing fast!"
+text = "I really like your dress"
 text = preprocess(text)
 encoded_input = tokenizer(text, return_tensors="pt")
 output = model(**encoded_input)
@@ -36,6 +36,7 @@ scores = softmax(scores)
 # scores = output[0][0].numpy()
 # scores = softmax(scores)
 # Print labels and scores
+print(scores)
 ranking = np.argsort(scores)
 ranking = ranking[::-1]
 for i in range(scores.shape[0]):

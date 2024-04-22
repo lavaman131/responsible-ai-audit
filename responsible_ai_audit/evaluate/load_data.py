@@ -4,7 +4,7 @@ import pandas as pd
 
 def getRandDataset(n):
     dataset = load_dataset("social_bias_frames", split="train")
-    shuffled_dataset = dataset.shuffle(seed=42)
+    shuffled_dataset = dataset.shuffle()
     subset = shuffled_dataset[0:n]
     return subset
 
