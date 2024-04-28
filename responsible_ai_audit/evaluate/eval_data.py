@@ -13,5 +13,3 @@ def raceDist():
 #plot annotatorPolitics dist
 def poliDist():
     data = load_data.getRandDataset(10)
-
-genderDist()

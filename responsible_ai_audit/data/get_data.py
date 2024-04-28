@@ -69,7 +69,7 @@ class SentimentDataset(torch.utils.data.Dataset):
 
 
 # white male conservative - train/val = 5184/1296
-def getWhiteMaleConsData(df: pd.DataFrame) -> pd.Series[bool]:
+def getWhiteMaleConsData(df: pd.DataFrame) -> pd.Series:
     return (
         (df["annotatorRace"] == "white")
         & (df["annotatorGender"] == "man")
@@ -78,7 +78,7 @@ def getWhiteMaleConsData(df: pd.DataFrame) -> pd.Series[bool]:
 
 
 # white male liberal - train/val = 10,404/2601
-def getWhiteMaleLibData(df: pd.DataFrame) -> pd.Series[bool]:
+def getWhiteMaleLibData(df: pd.DataFrame) -> pd.Series:
     return (
         (df["annotatorRace"] == "white")
         & (df["annotatorGender"] == "man")
@@ -87,7 +87,7 @@ def getWhiteMaleLibData(df: pd.DataFrame) -> pd.Series[bool]:
 
 
 # white female liberal - train/val = 14,557/3640
-def getWhiteFemaleLibData(df: pd.DataFrame) -> pd.Series[bool]:
+def getWhiteFemaleLibData(df: pd.DataFrame) -> pd.Series:
     return (
         (df["annotatorRace"] == "white")
         & (df["annotatorGender"] == "woman")
@@ -96,7 +96,7 @@ def getWhiteFemaleLibData(df: pd.DataFrame) -> pd.Series[bool]:
 
 
 # white female conservative - train/val = 756/190
-def getWhiteFemaleConsData(df: pd.DataFrame) -> pd.Series[bool]:
+def getWhiteFemaleConsData(df: pd.DataFrame) -> pd.Series:
     return (
         (df["annotatorRace"] == "white")
         & (df["annotatorGender"] == "woman")
@@ -105,7 +105,7 @@ def getWhiteFemaleConsData(df: pd.DataFrame) -> pd.Series[bool]:
 
 
 # black female mod-liberal - train/val = 3025/757
-def getBlackFemaleModlibData(df: pd.DataFrame) -> pd.Series[bool]:
+def getBlackFemaleModlibData(df: pd.DataFrame) -> pd.Series:
     return (
         (df["annotatorRace"] == "black")
         & (df["annotatorGender"] == "woman")

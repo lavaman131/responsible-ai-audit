@@ -7,6 +7,7 @@ from transformers import AutoTokenizer, AutoConfig
 import numpy as np
 import pandas as pd
 from scipy.special import softmax
+from datasets import load_dataset
 
 #functions
 def preprocess(text):
@@ -37,9 +38,11 @@ model = AutoModelForSequenceClassification.from_pretrained(MODEL)
 
 #ok cool, now we set up the data_set. in the actual we can import data/thingy.py and load from there
 #but for now we'll just make up some fake dataset
-import load_data
-data = load_data.getRandDataset(200)
-dataset_text = data["post"]
+from responsible_ai_audit.data import get_data
+dataset = load_dataset("social_bias_frames")
+
+training_data, val_data = get_data.get_train_val_split(dataset, get_data.getWhiteMaleLibData)
+dataset_text = training_data["post"]
 
 processed_texts = [preprocess(text) for text in dataset_text]
 encoded_inputs = [tokenizer(processed_text, return_tensors="pt") for processed_text in processed_texts]
@@ -55,4 +58,12 @@ positives = [softmax_score[2] for softmax_score in softmax_scores]
 
 #Build a dataframe
 df = pd.DataFrame({'Posts':dataset_text, 'Negative Score':negatives, 'Neutral Score':neutrals, 'Positive Score':positives, 'Label': get_max_label(softmax_scores)})
+
+#bar plot
 df['Label'].value_counts().plot(kind='bar')
+
+#plot TP/TN/FP/FN
+valid_values = val_data["offensiveYN"]
+print(valid_values)
+
+#
