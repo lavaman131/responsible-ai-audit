@@ -52,13 +52,17 @@ class SentimentDataset(torch.utils.data.Dataset):
     def __post_init__(self) -> None:
         self.batch_encoding = self.tokenizer(
             self.dataframe["post"].tolist(), return_tensors="pt", padding=True
-        )
+        )  # type: ignore
 
     def __len__(self) -> int:
         return len(self.dataframe)
 
     def __getitem__(self, idx: int) -> Dict[str, Any]:
-        return {**self.batch_encoding, "y": self.dataframe["offensiveYN"][idx]}
+        return {
+            "input_ids": self.batch_encoding["input_ids"][idx],
+            "attention_mask": self.batch_encoding["attention_mask"][idx],
+            "y": self.dataframe["offensiveYN"][idx],
+        }
 
 
 # other populations to explore - hisp man: 3k - liberal: 900, cons-1.8k, hisp woman: 4k - mod-liberal: 1k, other: 2k
