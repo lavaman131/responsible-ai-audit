@@ -8,9 +8,10 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-transformers = "^4.39.0"
+transformers = {extras = ["torch"], version = "^4.40.0"}
 scipy = "^1.13.0"
 datasets = "^2.19.0"
+tqdm = "^4.66.2"
 
 
 [build-system]
