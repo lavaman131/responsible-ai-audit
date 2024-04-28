@@ -1,14 +1,14 @@
 import datasets
 import torch.utils.data
 import pandas as pd
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, AutoConfig, AutoModelForSequenceClassification
 from sklearn.model_selection import train_test_split
 from typing import Tuple, List, Callable, Dict, Any
 
 
 def get_train_val_split(
     dataset: datasets.Dataset,
-    filter_function: Callable[[pd.DataFrame], pd.Series[bool]],
+    filter_function: Callable[[pd.DataFrame], pd.Series],
     test_size: float = 0.2,
     random_state: int = 88,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -69,7 +69,7 @@ class SentimentDataset(torch.utils.data.Dataset):
 
 
 # white male conservative - train/val = 5184/1296
-def getWhiteMaleConsData(df: pd.DataFrame) -> pd.Series[bool]:
+def getWhiteMaleConsData(df: pd.DataFrame) -> pd.Series:
     return (
         (df["annotatorRace"] == "white")
         & (df["annotatorGender"] == "man")
@@ -78,7 +78,7 @@ def getWhiteMaleConsData(df: pd.DataFrame) -> pd.Series[bool]:
 
 
 # white male liberal - train/val = 10,404/2601
-def getWhiteMaleLibData(df: pd.DataFrame) -> pd.Series[bool]:
+def getWhiteMaleLibData(df: pd.DataFrame) -> pd.Series:
     return (
         (df["annotatorRace"] == "white")
         & (df["annotatorGender"] == "man")
@@ -87,7 +87,7 @@ def getWhiteMaleLibData(df: pd.DataFrame) -> pd.Series[bool]:
 
 
 # white female liberal - train/val = 14,557/3640
-def getWhiteFemaleLibData(df: pd.DataFrame) -> pd.Series[bool]:
+def getWhiteFemaleLibData(df: pd.DataFrame) -> pd.Series:
     return (
         (df["annotatorRace"] == "white")
         & (df["annotatorGender"] == "woman")
@@ -96,7 +96,7 @@ def getWhiteFemaleLibData(df: pd.DataFrame) -> pd.Series[bool]:
 
 
 # white female conservative - train/val = 756/190
-def getWhiteFemaleConsData(df: pd.DataFrame) -> pd.Series[bool]:
+def getWhiteFemaleConsData(df: pd.DataFrame) -> pd.Series:
     return (
         (df["annotatorRace"] == "white")
         & (df["annotatorGender"] == "woman")
@@ -105,7 +105,7 @@ def getWhiteFemaleConsData(df: pd.DataFrame) -> pd.Series[bool]:
 
 
 # black female mod-liberal - train/val = 3025/757
-def getBlackFemaleModlibData(df: pd.DataFrame) -> pd.Series[bool]:
+def getBlackFemaleModlibData(df: pd.DataFrame) -> pd.Series:
     return (
         (df["annotatorRace"] == "black")
         & (df["annotatorGender"] == "woman")
@@ -119,6 +119,8 @@ if __name__ == "__main__":
     dataset = datasets.load_dataset("social_bias_frames")
     model = "cardiffnlp/twitter-roberta-base-sentiment-latest"
     tokenizer = AutoTokenizer.from_pretrained(model)
+    config = AutoConfig.from_pretrained(model)
+    model = AutoModelForSequenceClassification.from_pretrained(model)
     train_df, val_df = get_train_val_split(dataset, getWhiteMaleConsData)
     train_dataset = SentimentDataset(train_df, tokenizer)
     train_loader = torch.utils.data.DataLoader(

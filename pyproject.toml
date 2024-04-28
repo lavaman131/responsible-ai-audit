@@ -12,6 +12,8 @@ transformers = { extras = ["torch"], version = "^4.40.0" }
 scipy = "^1.13.0"
 datasets = "^2.19.0"
 tqdm = "^4.66.2"
+scikit-learn = "^1.4.2"
+hf-transfer = "^0.1.6"
 
 
 [build-system]
