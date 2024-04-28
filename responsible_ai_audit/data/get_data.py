@@ -4,7 +4,6 @@ import pandas as pd
 from transformers import AutoTokenizer, AutoConfig, AutoModelForSequenceClassification
 from sklearn.model_selection import train_test_split
 from typing import Tuple, Callable, Dict, Any
-
 from responsible_ai_audit.data.preprocessing import preprocess
 
 
@@ -50,7 +49,7 @@ class SentimentDataset(torch.utils.data.Dataset):
         self.dataframe = dataframe
         self.dataframe = self.preprocess_data(self.dataframe)
         self.tokenizer = tokenizer
-        self.id2label = {0: "no", 1: "neutral", 2: "yes"}  # offensiveYN
+        self.id2label = {0: "yes", 1: "neutral", 2: "no"}  # offensiveYN
         self.label2id = {v: k for k, v in self.id2label.items()}
         self.__post_init__()
 
@@ -63,7 +62,7 @@ class SentimentDataset(torch.utils.data.Dataset):
     def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
         df = df.loc[df["offensiveYN"] != ""]  # remove empty posts
         df.loc[:, "post"] = df.loc[:, "post"].map(preprocess)
-        id2class = {0: 0, 0.5: 1, 1: 2}
+        id2class = {0: 2, 0.5: 1, 1: 0}
         df.loc[:, "offensiveYN"] = df.loc[:, "offensiveYN"].astype(float).map(id2class)
         return df
 
