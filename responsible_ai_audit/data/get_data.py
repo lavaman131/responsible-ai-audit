@@ -1,14 +1,14 @@
 import datasets
 import torch.utils.data
 import pandas as pd
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, AutoConfig, AutoModelForSequenceClassification
 from sklearn.model_selection import train_test_split
 from typing import Tuple, List, Callable, Dict, Any
 
 
 def get_train_val_split(
     dataset: datasets.Dataset,
-    filter_function: Callable[[pd.DataFrame], List[bool]],
+    filter_function: Callable[[pd.DataFrame], pd.Series],
     test_size: float = 0.2,
     random_state: int = 88,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -52,7 +52,7 @@ class SentimentDataset(torch.utils.data.Dataset):
     def __post_init__(self) -> None:
         self.batch_encoding = self.tokenizer(
             self.dataframe["post"].tolist(), return_tensors="pt", padding=True
-        )  # type: ignore
+        )
 
     def __len__(self) -> int:
         return len(self.dataframe)
@@ -119,6 +119,8 @@ if __name__ == "__main__":
     dataset = datasets.load_dataset("social_bias_frames")
     model = "cardiffnlp/twitter-roberta-base-sentiment-latest"
     tokenizer = AutoTokenizer.from_pretrained(model)
+    config = AutoConfig.from_pretrained(model)
+    model = AutoModelForSequenceClassification.from_pretrained(model)
     train_df, val_df = get_train_val_split(dataset, getWhiteMaleConsData)
     train_dataset = SentimentDataset(train_df, tokenizer)
     train_loader = torch.utils.data.DataLoader(
