@@ -3,7 +3,9 @@ import torch.utils.data
 import pandas as pd
 from transformers import AutoTokenizer, AutoConfig, AutoModelForSequenceClassification
 from sklearn.model_selection import train_test_split
-from typing import Tuple, List, Callable, Dict, Any
+from typing import Tuple, Callable, Dict, Any
+
+from responsible_ai_audit.data.preprocessing import preprocess
 
 
 def get_train_val_split(
@@ -46,13 +48,24 @@ def get_test_split(dataset: datasets.Dataset) -> pd.DataFrame:
 class SentimentDataset(torch.utils.data.Dataset):
     def __init__(self, dataframe: pd.DataFrame, tokenizer: AutoTokenizer) -> None:
         self.dataframe = dataframe
+        self.dataframe = self.preprocess_data(self.dataframe)
         self.tokenizer = tokenizer
+        self.id2label = {0: "no", 1: "neutral", 2: "yes"}  # offensiveYN
+        self.label2id = {v: k for k, v in self.id2label.items()}
         self.__post_init__()
 
     def __post_init__(self) -> None:
         self.batch_encoding = self.tokenizer(
             self.dataframe["post"].tolist(), return_tensors="pt", padding=True
         )
+
+    @staticmethod
+    def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
+        df = df.loc[df["post"] != ""]  # remove empty posts
+        df["post"] = df["post"].map(preprocess)
+        id2class = {0: 0, 0.5: 1, 1: 2}
+        df["offensiveYN"] = df["offensiveYN"].map(lambda x: id2class[float(x)])
+        return df
 
     def __len__(self) -> int:
         return len(self.dataframe)
@@ -61,7 +74,7 @@ class SentimentDataset(torch.utils.data.Dataset):
         return {
             "input_ids": self.batch_encoding["input_ids"][idx],
             "attention_mask": self.batch_encoding["attention_mask"][idx],
-            "y": self.dataframe["offensiveYN"][idx],
+            "y": self.dataframe["offensiveYN"].iat[idx],
         }
 
 
