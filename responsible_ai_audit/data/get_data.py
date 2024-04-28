@@ -61,10 +61,10 @@ class SentimentDataset(torch.utils.data.Dataset):
 
     @staticmethod
     def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
-        df = df.loc[df["post"] != ""]  # remove empty posts
-        df["post"] = df["post"].map(preprocess)
+        df = df.loc[df["offensiveYN"] != ""]  # remove empty posts
+        df.loc[:, "post"] = df.loc[:, "post"].map(preprocess)
         id2class = {0: 0, 0.5: 1, 1: 2}
-        df["offensiveYN"] = df["offensiveYN"].map(lambda x: id2class[float(x)])
+        df.loc[:, "offensiveYN"] = df.loc[:, "offensiveYN"].astype(float).map(id2class)
         return df
 
     def __len__(self) -> int:
