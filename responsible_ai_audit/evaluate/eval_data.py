@@ -4,6 +4,7 @@ import load_data
 #plot the annotatorGender dist
 def genderDist():
     data = load_data.getRandDataset(10)
+    print(data)
 
 #plot annotatorRace dist
 def raceDist():
@@ -13,7 +14,4 @@ def raceDist():
 def poliDist():
     data = load_data.getRandDataset(10)
 
-
-
-
-
+genderDist()
