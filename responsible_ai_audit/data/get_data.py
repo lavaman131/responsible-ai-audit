@@ -8,7 +8,7 @@ from typing import Tuple, List, Callable, Dict, Any
 
 def get_train_val_split(
     dataset: datasets.Dataset,
-    filter_function: Callable[[pd.DataFrame], List[bool]],
+    filter_function: Callable[[pd.DataFrame], pd.Series[bool]],
     test_size: float = 0.2,
     random_state: int = 88,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -52,7 +52,7 @@ class SentimentDataset(torch.utils.data.Dataset):
     def __post_init__(self) -> None:
         self.batch_encoding = self.tokenizer(
             self.dataframe["post"].tolist(), return_tensors="pt", padding=True
-        )  # type: ignore
+        )
 
     def __len__(self) -> int:
         return len(self.dataframe)
