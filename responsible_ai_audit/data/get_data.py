@@ -3,14 +3,16 @@ import torch.utils.data
 import pandas as pd
 from transformers import AutoTokenizer, AutoConfig, AutoModelForSequenceClassification
 from sklearn.model_selection import train_test_split
-from typing import Tuple, List, Callable, Dict, Any
+from typing import Tuple, Callable, Dict, Any
+from responsible_ai_audit.data.preprocessing import preprocess
+import numpy as np
 
 
 def get_train_val_split(
     dataset: datasets.Dataset,
     filter_function: Callable[[pd.DataFrame], pd.Series],
     test_size: float = 0.2,
-    random_state: int = 88,
+    random_state: int = 42,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     train = dataset["train"]
     validation = dataset["validation"]
@@ -46,13 +48,24 @@ def get_test_split(dataset: datasets.Dataset) -> pd.DataFrame:
 class SentimentDataset(torch.utils.data.Dataset):
     def __init__(self, dataframe: pd.DataFrame, tokenizer: AutoTokenizer) -> None:
         self.dataframe = dataframe
+        self.dataframe = self.preprocess_data(self.dataframe)
         self.tokenizer = tokenizer
+        self.id2label = {0: "yes", 1: "neutral", 2: "no"}  # offensiveYN
+        self.label2id = {v: k for k, v in self.id2label.items()}
         self.__post_init__()
 
     def __post_init__(self) -> None:
         self.batch_encoding = self.tokenizer(
             self.dataframe["post"].tolist(), return_tensors="pt", padding=True
         )
+
+    @staticmethod
+    def preprocess_data(df: pd.DataFrame) -> pd.DataFrame:
+        df = df.loc[df["offensiveYN"] != ""]  # remove empty posts
+        df.loc[:, "post"] = df.loc[:, "post"].map(preprocess)
+        id2class = {0: 2, 0.5: 1, 1: 0}
+        df.loc[:, "offensiveYN"] = df.loc[:, "offensiveYN"].astype(float).map(id2class)
+        return df
 
     def __len__(self) -> int:
         return len(self.dataframe)
@@ -61,7 +74,7 @@ class SentimentDataset(torch.utils.data.Dataset):
         return {
             "input_ids": self.batch_encoding["input_ids"][idx],
             "attention_mask": self.batch_encoding["attention_mask"][idx],
-            "y": self.dataframe["offensiveYN"][idx],
+            "y": self.dataframe["offensiveYN"].iat[idx],
         }
 
 
@@ -111,6 +124,16 @@ def getBlackFemaleModlibData(df: pd.DataFrame) -> pd.Series:
         & (df["annotatorGender"] == "woman")
         & (df["annotatorPolitics"] == "mod-liberal")
     )
+
+
+filter_functions_mapping = {
+    "white_male_conservative": getWhiteMaleConsData,
+    "white_male_liberal": getWhiteMaleLibData,
+    "white_female_liberal": getWhiteFemaleLibData,
+    "black_female_moderate_liberal": getBlackFemaleModlibData,
+    "white_female_conservative": getWhiteFemaleConsData,
+    "all": lambda df: pd.Series(np.ones(len(df), dtype=bool)),
+}
 
 
 if __name__ == "__main__":

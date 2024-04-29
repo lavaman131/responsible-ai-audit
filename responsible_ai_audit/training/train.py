@@ -23,7 +23,12 @@ def train(
     for epoch in range(num_epochs):
         for batch in train_dataloader:
             batch = {k: v.to(device) for k, v in batch.items()}
-            outputs = model(**batch)
+            input_ids, attention_mask, y = (
+                batch["input_ids"],
+                batch["attention_mask"],
+                batch["y"],
+            )
+            outputs = model(input_ids=input_ids, attention_mask=attention_mask)
             loss = outputs.loss
             loss.backward()
 
@@ -31,12 +36,8 @@ def train(
             lr_scheduler.step()
             optimizer.zero_grad()
 
-            # TODO: calculate other metrics here
-
             progress_bar.set_description(f"Epoch {epoch+1}")
             progress_bar.set_postfix({"train_loss": loss.item()})
-
-            # TODO: add other metrics here
 
             progress_bar.update(1)
 
@@ -56,8 +57,13 @@ def evaluate(
     index = 0
     for batch in eval_dataloader:
         batch = {k: v.to(device) for k, v in batch.items()}
+        input_ids, attention_mask, y = (
+            batch["input_ids"],
+            batch["attention_mask"],
+            batch["y"],
+        )
         with torch.no_grad():
-            outputs = model(**batch)
+            outputs = model(input_ids=input_ids, attention_mask=attention_mask)
             loss = outputs.loss
 
         logits = outputs.logits
