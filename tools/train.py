@@ -1,4 +1,3 @@
-from torch.optim.lr_scheduler import LinearLR
 import wandb
 import datasets
 import torch.utils.data
@@ -11,13 +10,14 @@ import torch.nn.functional as F
 from responsible_ai_audit.data.get_data import (
     SentimentDataset,
     get_train_val_split,
-    getWhiteMaleConsData,
+    filter_functions_mapping,
 )
 from responsible_ai_audit.metrics import accuracy_score
 from torch.optim import AdamW
 from argparse import ArgumentParser
-from loguru import logger
+from pathlib import Path
 from transformers import get_linear_schedule_with_warmup
+from transformers import set_seed
 
 
 def train(
@@ -27,16 +27,30 @@ def train(
 ) -> None:
     device = model.device
     num_training_steps = wandb.config["max_steps"]
-    num_validation_steps = len(eval_dataloader)
     progress_bar = tqdm(range(num_training_steps))
-    logger.info("Setting model to train mode...")
     model.train()
-    logger.info("Starting training...")
-    global_step = 0
+    global_step = 1
     epoch = 1
     loss_fn = nn.CrossEntropyLoss()
+    metrics = {
+        "train_loss": 0.0,
+        "val_loss": 0.0,
+        "train_accuracy": 0.0,
+        "val_accuracy": 0.0,
+    }
+    train_batches = 0
+    val_batches = 0
+
     while True:
         for batch in train_dataloader:
+            if global_step == num_training_steps:
+                progress_bar.close()
+                torch.save(
+                    model.state_dict(),
+                    wandb.config["model_save_dir"].joinpath(f"step_{global_step}.pth"),
+                )
+                return
+
             batch = {k: v.to(device) for k, v in batch.items()}
             input_ids, attention_mask, y = (
                 batch["input_ids"],
@@ -46,7 +60,7 @@ def train(
 
             wandb.config["optimizer"].zero_grad()
 
-            with torch.autocast(device_type="cuda"):
+            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
                 outputs = model(input_ids=input_ids, attention_mask=attention_mask)
                 logits = outputs[-1]
                 loss = loss_fn(logits, y)
@@ -55,54 +69,64 @@ def train(
             wandb.config["optimizer"].step()
             wandb.config["lr_scheduler"].step()
 
-            if global_step % wandb.config["log_interval"] == 0:
-                softmax_outputs = F.softmax(logits, dim=1)
-                y_pred = torch.argmax(softmax_outputs, dim=1)
-                accuracy = accuracy_score(y, y_pred)
-                metrics = {"train_loss": loss.item(), "train_accuracy": accuracy}
-                wandb.log(metrics)
-                progress_bar.set_postfix(metrics)
+            softmax_outputs = F.softmax(logits, dim=1)
+            y_pred = torch.argmax(softmax_outputs, dim=1)
+            accuracy = accuracy_score(y, y_pred)
+            metrics["train_loss"] += loss.item()
+            metrics["train_accuracy"] += accuracy
+            train_batches += 1
 
-            global_step += 1
-
-            if global_step >= wandb.config["max_steps"]:
-                break
-
-            if global_step % wandb.config["val_interval"] == 0:
-                val_progress_bar = tqdm(range(num_validation_steps))
-                logger.info("Setting model to eval mode...")
+            if global_step > 0 and global_step % wandb.config["log_interval"] == 0:
                 model.eval()
-                logger.info("Starting evaluation...")
-                global_step = 0
-                for batch in eval_dataloader:
-                    batch = {k: v.to(device) for k, v in batch.items()}
-                    input_ids, attention_mask, y = (
-                        batch["input_ids"],
-                        batch["attention_mask"],
-                        batch["y"],
-                    )
-                    with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-                        outputs = model(
-                            input_ids=input_ids, attention_mask=attention_mask
+                with torch.no_grad():
+                    for batch in eval_dataloader:
+                        batch = {k: v.to(device) for k, v in batch.items()}
+                        input_ids, attention_mask, y = (
+                            batch["input_ids"],
+                            batch["attention_mask"],
+                            batch["y"],
                         )
-                        logits = outputs[-1]
-                        with torch.no_grad():
-                            loss = loss_fn(logits, y)
+                        with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+                            outputs = model(
+                                input_ids=input_ids, attention_mask=attention_mask
+                            )
+                            logits = outputs[-1]
+                            val_loss = loss_fn(logits, y)
 
-                    if global_step % wandb.config["log_interval"] == 0:
                         softmax_outputs = F.softmax(logits, dim=1)
                         y_pred = torch.argmax(softmax_outputs, dim=1)
-                        accuracy = accuracy_score(y, y_pred)
-                        metrics = {"val_loss": loss.item(), "val_accuracy": accuracy}
-                        wandb.log(metrics)
-                        val_progress_bar.set_postfix(metrics)
+                        val_accuracy = accuracy_score(y, y_pred)
+                        metrics["val_loss"] += val_loss.item()
+                        metrics["val_accuracy"] += val_accuracy
+                        val_batches += 1
 
-                    val_progress_bar.update(1)
-                    global_step += 1
-
-                logger.info("Setting model back to train mode...")
                 model.train()
 
+                wandb.config["model_save_dir"].mkdir(parents=True, exist_ok=True)
+                torch.save(
+                    model.state_dict(),
+                    wandb.config["model_save_dir"].joinpath(f"step_{global_step}.pth"),
+                )
+
+                metrics["train_loss"] /= train_batches
+                metrics["val_loss"] /= val_batches
+                metrics["train_accuracy"] /= train_batches
+                metrics["val_accuracy"] /= val_batches
+
+                wandb.log(metrics, step=global_step)
+                progress_bar.set_postfix(metrics)
+
+                # reset metrics and batch counters
+                metrics = {
+                    "train_loss": 0.0,
+                    "val_loss": 0.0,
+                    "train_accuracy": 0.0,
+                    "val_accuracy": 0.0,
+                }
+                train_batches = 0
+                val_batches = 0
+
+            global_step += 1
             progress_bar.update(1)
 
         progress_bar.set_description(f"Epoch {epoch}")
@@ -112,31 +136,43 @@ def train(
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--wandb_project", type=str)
-    parser.add_argument("--lr", type=float, default=1e-5)
+    parser.add_argument("--lr", type=float, default=2e-5)
     parser.add_argument("--max_steps", type=int, default=10000)
-    parser.add_argument("--batch_size", type=int, default=128)
+    parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--log_interval", type=int, default=50)
-    parser.add_argument("--val_interval", type=int, default=500)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--subset", type=str)
+    parser.add_argument("--model_save_dir", type=str, default="./models")
     args = parser.parse_args()
     wandb.init(project=args.wandb_project)
+
     # capture a dictionary of hyperparameters with config
     wandb.config = {
         "lr": args.lr,
+        "seed": args.seed,
         "max_steps": args.max_steps,
         "batch_size": args.batch_size,
         "log_interval": args.log_interval,
-        "val_interval": args.val_interval,
+        "model_save_dir": Path(args.model_save_dir),
     }
+    set_seed(wandb.config["seed"])
+
+    torch.set_float32_matmul_precision("high")
 
     dataset = datasets.load_dataset("social_bias_frames")
     num_labels = 3
-    model = "cardiffnlp/twitter-roberta-base-sentiment-latest"
+    model = "distilbert/distilroberta-base"
     tokenizer = AutoTokenizer.from_pretrained(model)
     config = AutoConfig.from_pretrained(model)
     model = AutoModelForSequenceClassification.from_pretrained(
         model, device_map="cuda", num_labels=num_labels
     )
-    train_df, val_df = get_train_val_split(dataset, getWhiteMaleConsData)
+
+    train_df, val_df = get_train_val_split(
+        dataset,
+        filter_functions_mapping[args.subset],
+        random_state=wandb.config["seed"],
+    )
     train_dataset = SentimentDataset(train_df, tokenizer)
     val_dataset = SentimentDataset(val_df, tokenizer)
     train_loader = torch.utils.data.DataLoader(
@@ -158,7 +194,5 @@ if __name__ == "__main__":
             )
         }
     )
-    # optional: track gradients
-    wandb.watch(model)
 
     train(model, train_loader, val_loader)

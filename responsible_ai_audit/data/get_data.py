@@ -5,13 +5,14 @@ from transformers import AutoTokenizer, AutoConfig, AutoModelForSequenceClassifi
 from sklearn.model_selection import train_test_split
 from typing import Tuple, Callable, Dict, Any
 from responsible_ai_audit.data.preprocessing import preprocess
+import numpy as np
 
 
 def get_train_val_split(
     dataset: datasets.Dataset,
     filter_function: Callable[[pd.DataFrame], pd.Series],
     test_size: float = 0.2,
-    random_state: int = 88,
+    random_state: int = 42,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     train = dataset["train"]
     validation = dataset["validation"]
@@ -123,6 +124,16 @@ def getBlackFemaleModlibData(df: pd.DataFrame) -> pd.Series:
         & (df["annotatorGender"] == "woman")
         & (df["annotatorPolitics"] == "mod-liberal")
     )
+
+
+filter_functions_mapping = {
+    "white_male_conservative": getWhiteMaleConsData,
+    "white_male_liberal": getWhiteMaleLibData,
+    "white_female_liberal": getWhiteFemaleLibData,
+    "black_female_moderate_liberal": getBlackFemaleModlibData,
+    "white_female_conservative": getWhiteFemaleConsData,
+    "all": lambda df: pd.Series(np.ones(len(df), dtype=bool)),
+}
 
 
 if __name__ == "__main__":
