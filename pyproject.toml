@@ -16,6 +16,8 @@ scikit-learn = "^1.4.2"
 hf-transfer = "^0.1.6"
 seaborn = "^0.13.2"
 scienceplots = "^2.1.1"
+wandb = "^0.16.6"
+loguru = "^0.7.2"
 
 
 [build-system]
