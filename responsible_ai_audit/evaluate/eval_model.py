@@ -17,8 +17,7 @@ from pathlib import Path
 from torch import nn
 
 #sns formatting
-sns.set_context("poster")
-sns.set_theme(style="whitegrid", palette="pastel")
+sns.set_theme(style="whitegrid", palette="pastel", font_scale=2, rc={'figure.figsize':(11,11)}, font ='Times New Roman')
 
 #functions
 def get_max_label(softmax_scores):
@@ -44,7 +43,7 @@ def preprocess(text):
 
 
 def get_val_dataset():
-    dataset = load_dataset("social_bias_frames", split = "test")[:1000]
+    dataset = load_dataset("social_bias_frames", split = "test")[:1500]
     return dataset
 
 def get_model(model_name: str, num_labels: int = 3, base_dir = Path("models"), device: Union[str, torch.device] = "cpu") -> nn.Module:
@@ -81,24 +80,34 @@ def get_df_w_predictions(val_data, model, tokenizer):
     return df
 
 
-def get_dfs_with_labels(val_dataset):
+def save_dfs(val_dataset):
     name_list = ["white_male_conservative", "white_male_liberal", "white_female_liberal", "black_female_moderate_liberal", "white_female_conservative", "all"]
     url = "distilbert/distilroberta-base"
-    dfs_with_labels = []
     for name in name_list:
         tokenizer = AutoTokenizer.from_pretrained(url)
         model = get_model(name, base_dir=Path("/Users/samuelwu/Desktop/Senior/Spring/DS682/Final Project/responsible-ai-audit/responsible_ai_audit/evaluate/models"))
-        dfs_with_labels.append((get_df_w_predictions(val_dataset,model,tokenizer), name))
-    return dfs_with_labels
+        df = get_df_w_predictions(val_dataset,model,tokenizer)
+        df.to_csv("data/"+name+"_data.csv")
+    print("done")
 
+def load_dfs_w_labels():
+    name_list = ["white_male_conservative", "white_male_liberal", "white_female_liberal", "black_female_moderate_liberal", "white_female_conservative", "all"]
+    dfs_w_labels = []
+    for name in name_list:
+        df = pd.read_csv("data/"+name+"_data.csv")
+        dfs_w_labels.append((df, name))
+    return dfs_w_labels
+    
 #bar plot
-def bar_plot(df_with_label):
-    df = df_with_label[0]
-    label = df_with_label[1]
-    fig = df['Prediction'].value_counts().plot(kind='bar')
-    plt.title("Prediction Distribution: "+label, fontsize=16)
-    plt.show()
-    #fig.savefig('assets/barplot.png')
+def bar_plots(dfs_with_label):
+    for df_with_label in dfs_with_label:
+        df = df_with_label[0]
+        df = df['Prediction'].replace({0:'Offensive',1:'Neutral', 2:'Not Offensive'})
+        label = df_with_label[1]
+        fig = df.value_counts().plot(kind='bar')
+        plt.title("Prediction Distribution: "+label)
+        plt.savefig("assets/"+label+"_barplot.svg", dpi = 300)
+        plt.show()
 
 #plot TP/TN/FP/FN 
 
@@ -108,42 +117,79 @@ def FPR_bar_plot(dfs_with_labels):
     model = []
     for df,model_name in dfs_with_labels:
         model = model+ [model_name, model_name, model_name, model_name]
-        label = label + [model_name+" TP", model_name+" TN", model_name+" FP", model_name+" FN"]
-
-        value = value+[sum(offensiveYN == "1.0" and prediction == 0 for offensiveYN,prediction in zip(df["offensiveYN"], df["Prediction"])),
-                       sum(offensiveYN == "0.0" and prediction == 2 for offensiveYN,prediction in zip(df["offensiveYN"], df["Prediction"])),
-                       sum(offensiveYN == "0.0" and prediction == 0 for offensiveYN,prediction in zip(df["offensiveYN"], df["Prediction"])),
-                       sum(offensiveYN == "1.0" and prediction == 2 for offensiveYN,prediction in zip(df["offensiveYN"], df["Prediction"]))]
+        label = label + ["TP", "TN", "FP", "FN"]
+        value = value+[sum(offensiveYN == 1.0 and prediction == 0 for offensiveYN,prediction in zip(df["offensiveYN"], df["Prediction"])),
+                       sum(offensiveYN == 0.0 and prediction == 2 for offensiveYN,prediction in zip(df["offensiveYN"], df["Prediction"])),
+                       sum(offensiveYN == 0.0 and prediction == 0 for offensiveYN,prediction in zip(df["offensiveYN"], df["Prediction"])),
+                       sum(offensiveYN == 1.0 and prediction == 2 for offensiveYN,prediction in zip(df["offensiveYN"], df["Prediction"]))]
     FPR_df = pd.DataFrame({"Label":label, "Value":value, "Model":model})
-    sns.set_theme(rc={'figure.figsize':(80,8.27)})
-    plt.title("TP/TN/FP/FN Distribution", fontsize=16)
-    plt.xlabel("Model", fontsize=14)
-    plt.ylabel("# of Predictions", fontsize=14)
-
+    plt.title("TP/TN/FP/FN Distribution")
+    plt.xlabel("Model")
+    plt.ylabel("# of Predictions")
     # Display the plot
     sns.barplot(x = 'Label',y = 'Value',hue = 'Model',data = FPR_df)
+    plt.savefig("assets/FPR_barplot.svg", dpi = 300)
     plt.show()
 
-def ROC_plot(df_with_label):
-    df = df_with_label[0]
-    label = df_with_label[1]
-    offYN = [1 if elem == "1.0" else 0 for elem in df["offensiveYN"]]
-    fpr, tpr, thresholds = sklearn.metrics.roc_curve(offYN, df["OffensiveY Score"])
-    roc_df = pd.DataFrame({'fpr':fpr, 'tpr':tpr})
-    sns.set_theme(rc={'figure.figsize':(11,8)})
-    plt.title("ROC Curve: "+label, fontsize=16)
-    plt.xlabel("FPR", fontsize=14)
-    plt.ylabel("TPR", fontsize=14)
+def ROC_plots(dfs_with_label):
+    for df_with_label in dfs_with_label:
+        df = df_with_label[0]
+        label = df_with_label[1]
+        offYN = [1 if elem == 1.0 else 0 for elem in df["offensiveYN"]]
+        fpr, tpr, thresholds = sklearn.metrics.roc_curve(offYN, df["OffensiveY Score"])
+        roc_df = pd.DataFrame({'fpr':fpr, 'tpr':tpr})
+        plt.title("ROC Curve: "+label)
+        plt.xlabel("FPR")
+        plt.ylabel("TPR")
 
-    # Display the plot
-    sns.lineplot(data = roc_df, x = "fpr", y = "tpr")
+        # Display the plot
+        sns.lineplot(data = roc_df, x = "fpr", y = "tpr", linewidth = 6)
+        plt.savefig("assets/"+label+"_ROC_plot.svg", dpi = 300)
+        plt.show()
+
+def val_race_plot():
+    df = pd.DataFrame(get_val_dataset())
+    #define Seaborn color palette to use
+    colors = sns.color_palette('pastel')[0:5]
+    #create pie chart
+    plt.pie(df["annotatorRace"].value_counts(), colors = colors, autopct=lambda p: '{:.01f}%'.format(round(p)) if p > 1.0 else '', pctdistance=1.3, labels = None)
+    plt.legend(df["annotatorRace"].unique(), bbox_to_anchor=(.7, -.05))
+    plt.title("Validation Data Race %")
+    plt.savefig("assets/val_race.svg",bbox_inches='tight', dpi = 300)
     plt.show()
-    
 
+def val_gender_plot():
+    df = pd.DataFrame(get_val_dataset())
+    #define Seaborn color palette to use
+    colors = sns.color_palette('pastel')[0:5]
+    #create pie chart
+    plt.pie(df["annotatorGender"].value_counts(), colors = colors, autopct=lambda p: '{:.01f}%'.format(round(p)) if p > 1.0 else '', pctdistance=.8, labels = None)
+    plt.legend(df["annotatorGender"].unique(), bbox_to_anchor=(.7, -.05))
+    plt.title("Validation Data Gender %")
+    plt.savefig("assets/val_gender.svg",bbox_inches='tight', dpi = 300)
+    plt.show()
 
-dfs = get_dfs_with_labels(get_val_dataset())
+def val_politics_plot():
+    df = pd.DataFrame(get_val_dataset())
+    #define Seaborn color palette to use
+    colors = sns.color_palette('pastel')[0:5]
+    #create pie chart
+    plt.pie(df["annotatorPolitics"].value_counts(), colors = colors, autopct=lambda p: '{:.01f}%'.format(round(p)) if p > 1.0 else '', pctdistance=.8, labels = None)
+    plt.legend(df["annotatorPolitics"].unique(), bbox_to_anchor=(.7, -.05))
+    plt.title("Validation Data Politics %")
+    plt.savefig("assets/val_politics.svg",bbox_inches='tight', dpi = 300)
+    plt.show()
 
+#method to calculate the datasets and load them
+#save_dfs(get_val_dataset())
+
+#load and save figures
+dfs = load_dfs_w_labels()
 FPR_bar_plot(dfs)
-ROC_plot(dfs[0])
-bar_plot(dfs[0])
+ROC_plots(dfs)
+bar_plots(dfs)
+val_race_plot()
+val_gender_plot()
+val_politics_plot()
+
 
