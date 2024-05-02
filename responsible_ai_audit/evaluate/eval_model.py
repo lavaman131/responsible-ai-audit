@@ -17,7 +17,7 @@ from pathlib import Path
 from torch import nn
 
 #sns formatting
-sns.set_theme(style="whitegrid", palette="pastel", font_scale=2, rc={'figure.figsize':(11,11)}, font ='Times New Roman')
+sns.set_theme(style="whitegrid", palette="pastel", font_scale=3.5, rc={'figure.figsize':(11,11)}, font ='Times New Roman')
 
 #functions
 def get_max_label(softmax_scores):
@@ -106,7 +106,7 @@ def bar_plots(dfs_with_label):
         label = df_with_label[1]
         fig = df.value_counts().plot(kind='bar')
         plt.title("Prediction Distribution: "+label)
-        plt.savefig("assets/"+label+"_barplot.svg", dpi = 300)
+        plt.savefig("assets/"+label+"_barplot.png", dpi = 300)
         plt.show()
 
 #plot TP/TN/FP/FN 
@@ -127,8 +127,10 @@ def FPR_bar_plot(dfs_with_labels):
     plt.xlabel("Model")
     plt.ylabel("# of Predictions")
     # Display the plot
+    
     sns.barplot(x = 'Label',y = 'Value',hue = 'Model',data = FPR_df)
-    plt.savefig("assets/FPR_barplot.svg", dpi = 300)
+    plt.legend(bbox_to_anchor=(.7, -.05))
+    plt.savefig("assets/FPR_barplot.png", dpi = 300, bbox_inches='tight')
     plt.show()
 
 def ROC_plots(dfs_with_label):
@@ -144,7 +146,7 @@ def ROC_plots(dfs_with_label):
 
         # Display the plot
         sns.lineplot(data = roc_df, x = "fpr", y = "tpr", linewidth = 6)
-        plt.savefig("assets/"+label+"_ROC_plot.svg", dpi = 300)
+        plt.savefig("assets/"+label+"_ROC_plot.png", dpi = 300)
         plt.show()
 
 def val_race_plot():
@@ -155,7 +157,7 @@ def val_race_plot():
     plt.pie(df["annotatorRace"].value_counts(), colors = colors, autopct=lambda p: '{:.01f}%'.format(round(p)) if p > 1.0 else '', pctdistance=1.3, labels = None)
     plt.legend(df["annotatorRace"].unique(), bbox_to_anchor=(.7, -.05))
     plt.title("Validation Data Race %")
-    plt.savefig("assets/val_race.svg",bbox_inches='tight', dpi = 300)
+    plt.savefig("assets/val_race.png",bbox_inches='tight', dpi = 300)
     plt.show()
 
 def val_gender_plot():
@@ -166,7 +168,7 @@ def val_gender_plot():
     plt.pie(df["annotatorGender"].value_counts(), colors = colors, autopct=lambda p: '{:.01f}%'.format(round(p)) if p > 1.0 else '', pctdistance=.8, labels = None)
     plt.legend(df["annotatorGender"].unique(), bbox_to_anchor=(.7, -.05))
     plt.title("Validation Data Gender %")
-    plt.savefig("assets/val_gender.svg",bbox_inches='tight', dpi = 300)
+    plt.savefig("assets/val_gender.png",bbox_inches='tight', dpi = 300)
     plt.show()
 
 def val_politics_plot():
@@ -177,7 +179,7 @@ def val_politics_plot():
     plt.pie(df["annotatorPolitics"].value_counts(), colors = colors, autopct=lambda p: '{:.01f}%'.format(round(p)) if p > 1.0 else '', pctdistance=.8, labels = None)
     plt.legend(df["annotatorPolitics"].unique(), bbox_to_anchor=(.7, -.05))
     plt.title("Validation Data Politics %")
-    plt.savefig("assets/val_politics.svg",bbox_inches='tight', dpi = 300)
+    plt.savefig("assets/val_politics.png",bbox_inches='tight', dpi = 300)
     plt.show()
 
 #method to calculate the datasets and load them
